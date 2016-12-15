@@ -1,5 +1,5 @@
 /*
- tdogl::Shader
+ cb::Shader
  
  Copyright 2012 Thomas Dalling - http://tomdalling.com/
  
@@ -21,7 +21,7 @@
 #include <GL/glew.h>
 #include <string>
 
-namespace tdogl {
+namespace cb {
 
     /**
      Represents a compiled OpenGL shader.
@@ -58,7 +58,7 @@ namespace tdogl {
          */
         GLuint object() const;
         
-        // tdogl::Shader objects can be copied and assigned because they are reference counted
+        // cb::Shader objects can be copied and assigned because they are reference counted
         // like a shared pointer
         Shader(const Shader& other);
         Shader& operator =(const Shader& other);

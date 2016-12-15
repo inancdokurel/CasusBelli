@@ -1,5 +1,5 @@
 /*
- tdogl::Texture
+ cb::Texture
  
  Copyright 2012 Thomas Dalling - http://tomdalling.com/
  
@@ -19,7 +19,7 @@
 #include "Texture.h"
 #include <stdexcept>
 
-using namespace tdogl;
+using namespace cb;
 
 static GLenum TextureFormatForBitmapFormat(Bitmap::Format format, bool srgb)
 {

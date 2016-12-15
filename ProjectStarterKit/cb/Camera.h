@@ -1,5 +1,5 @@
 /*
- tdogl::Camera
+ cb::Camera
 
  Copyright 2012 Thomas Dalling - http://tomdalling.com/
 
@@ -21,7 +21,7 @@
 #include <glm/glm.hpp>
 
 
-namespace tdogl {
+namespace cb {
 
     /**
      A first-person shooter type of camera.

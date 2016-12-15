@@ -33,10 +33,13 @@ limitations under the License.
 #include <list>
 #include <sstream>
 
-// tdogl classes
-#include "tdogl/Program.h"
-#include "tdogl/Texture.h"
-#include "tdogl/Camera.h"
+// cb classes
+#include "cb/Program.h"
+#include "cb/Texture.h"
+#include "cb/Camera.h"
+#include "cb/Structures.h"
+#include "cb/Tank.h"
+
 
 /*
 Represents a textured geometry asset
@@ -49,110 +52,57 @@ Contains everything necessary to draw arbitrary geometry with a single texture:
 - a VAO
 - the parameters to glDrawArrays (drawType, drawStart, drawCount)
 */
-struct ModelAsset {
-	tdogl::Program* shaders;
-	tdogl::Texture* texture;
-	GLuint vbo;
-	GLuint vao;
-	GLenum drawType;
-	GLint drawStart;
-	GLint drawCount;
-	GLfloat shininess;
-	glm::vec3 specularColor;
 
-	ModelAsset() :
-		shaders(NULL),
-		texture(NULL),
-		vbo(0),
-		vao(0),
-		drawType(GL_TRIANGLES),
-		drawStart(0),
-		drawCount(0),
-		shininess(0.0f),
-		specularColor(1.0f, 1.0f, 1.0f)
-	{}
-};
-
-/*
-Represents an instance of an `ModelAsset`
-
-Contains a pointer to the asset, and a model transformation matrix to be used when drawing.
-*/
-
-struct ModelInstance {
-	ModelAsset* asset;
-	glm::mat4 transform;
-	GLfloat positionX;
-	GLfloat positionY;
-	GLfloat positionZ;
-	void setPosition(GLfloat x, GLfloat y, GLfloat z);
-	ModelInstance() :
-		asset(NULL),
-		transform()
-	{}
-};
-
-
-void ModelInstance::setPosition(GLfloat x, GLfloat y, GLfloat z)
-{
-	positionX = x;
-	positionY = y;
-	positionZ = z;
-}
-
-/*
-Represents a point light
-*/
-struct Light {
-	glm::vec4 position;
-	glm::vec3 intensities; //a.k.a. the color of the light
-	float attenuation;
-	float ambientCoefficient;
-	float coneAngle;
-	glm::vec3 coneDirection;
-};
+using namespace cb;
 
 // constants
 const glm::vec2 SCREEN_SIZE(1366, 768);
 
+const GLfloat TURN_RATE = 0.07;
+const GLfloat MOVEMENT_RATE = 0.01;
+
 // globals
 GLFWwindow* gWindow = NULL;
 double gScrollY = 0.0;
-tdogl::Camera gCamera;
-ModelAsset gTank;
-ModelAsset gTerrain;
-ModelInstance * gInstances = new ModelInstance[10];
+cb::Camera gCamera;
+cb::ModelAsset gTank;
+cb::ModelAsset gTerrain;
+std::vector<ModelInstance*> gInstances(10);
 GLfloat gDegreesRotated = 0.0f;
 GLfloat gRight = 0.0f;
 GLfloat gForward = 0.0f;
-std::vector<Light> gLights;
+std::vector<cb::Light> gLights;
 GLfloat mRight = 0.0f;
 GLfloat mUp = 0.0f;
 GLfloat camx;
 GLfloat camy;
 GLfloat camz;
+ModelInstance terrain, tank1, tank2;
+Tank pTank, eTank;
+
+void AIMove(Tank& tank);
 
 
 
-// returns a new tdogl::Program created from the given vertex and fragment shader filenames
-static tdogl::Program* LoadShaders(const char* vertFilename, const char* fragFilename) {
-	std::vector<tdogl::Shader> shaders;
-	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath(vertFilename), GL_VERTEX_SHADER));
-	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath(fragFilename), GL_FRAGMENT_SHADER));
-	return new tdogl::Program(shaders);
+// returns a new cb::Program created from the given vertex and fragment shader filenames
+static cb::Program* LoadShaders(const char* vertFilename, const char* fragFilename) {
+	std::vector<cb::Shader> shaders;
+	shaders.push_back(cb::Shader::shaderFromFile(ResourcePath(vertFilename), GL_VERTEX_SHADER));
+	shaders.push_back(cb::Shader::shaderFromFile(ResourcePath(fragFilename), GL_FRAGMENT_SHADER));
+	return new cb::Program(shaders);
 }
 
 
-// returns a new tdogl::Texture created from the given filename
-static tdogl::Texture* LoadTexture(const char* filename) {
-	tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(filename));
+// returns a new cb::Texture created from the given filename
+static cb::Texture* LoadTexture(const char* filename) {
+	cb::Bitmap bmp = cb::Bitmap::bitmapFromFile(ResourcePath(filename));
 	bmp.flipVertically();
-	return new tdogl::Texture(bmp);
+	return new cb::Texture(bmp);
 }
 
 
 // initialises the gWoodenCrate global
-static void LoadTankSteelAsset() {
+static void LoadBoxAsset() {
 	// set all the elements of gWoodenCrate
 
 	gTerrain.shaders = LoadShaders("vertex-shader.txt", "fragment-shader.txt");
@@ -276,24 +226,6 @@ static void LoadTankSteelAsset() {
 }
 
 
-void moveObject(ModelInstance m, GLfloat x, GLfloat y, GLfloat z) {
-
-}
-
-// convenience function that returns a translation matrix
-glm::mat4 translate(GLfloat x, GLfloat y, GLfloat z) {
-	return glm::translate(glm::mat4(), glm::vec3(x, y, z));
-}
-
-
-// convenience function that returns a scaling matrix
-glm::mat4 scale(GLfloat x, GLfloat y, GLfloat z) {
-	return glm::scale(glm::mat4(), glm::vec3(x, y, z));
-}
-
-glm::mat4 rotate(GLfloat angle, GLfloat x, GLfloat y, GLfloat z) {
-	return glm::rotate(glm::mat4(), angle, glm::vec3(x, y, z));
-}
 
 //create all the `instance` structs for the 3D scene, and add them to `gInstances`
 static void CreateInstances() {
@@ -302,55 +234,44 @@ static void CreateInstances() {
 	dot.transform = glm::mat4();
 	gInstances.push_back(dot);*/
 
-	ModelInstance terrain;
+
 	terrain.asset = &gTerrain;
 	terrain.transform = translate(-1024, 0, -1024)*scale(2048, 0, 2048);
-	gInstances[0] = terrain;
+	gInstances[0] = &terrain;
 
-	ModelInstance ptank;
-	ptank.asset = &gTank;
-	ptank.transform = translate(0, 0.5, 0)*scale(1.5, 0.5, 2);
-	ptank.positionX = 0;
-	ptank.positionY = 0.5;
-	ptank.positionZ = 0;
-	gInstances[1] = ptank;
 
-	ModelInstance tankTurret;
-	tankTurret.asset = &gTerrain;
-	tankTurret.transform = translate(0, 0.75, 0)*scale(0.5, 0.75, 1);
-	tankTurret.positionX = 0;
-	tankTurret.positionY = 0.75;
-	tankTurret.positionZ = 0;
-	gInstances[2] = tankTurret;
+	pTank = Tank(0, 0.5, 0, gTank, gTerrain, gTank, 0);
 
-	ModelInstance tank1;
+	eTank = Tank(0, 0.5, -20, gTank, gTerrain, gTank, 0);
+
+	gInstances[1] = pTank.GetBody();
+	gInstances[2] = pTank.GetTurret();
+	gInstances[5] = pTank.GetCannon();
+
+	gInstances[6] = eTank.GetBody();
+	gInstances[7] = eTank.GetTurret();
+	gInstances[8] = eTank.GetCannon();
+	eTank.moveTurret(-10, 90);
+
 	tank1.asset = &gTank;
 	tank1.transform = translate(-5, 1, -10)*scale(1, 1, 1);
 	tank1.positionX = -5;
 	tank1.positionY = 1;
 	tank1.positionZ = -10;
-	gInstances[3] = tank1;
+	gInstances[3] = &tank1;
 
 
-	ModelInstance tank2;
 	tank2.asset = &gTank;
 	tank2.transform = translate(5, 1, -10)*scale(1, 1, 1);
 	tank2.positionX = 5;
 	tank2.positionY = 1;
 	tank2.positionZ = -10;
-	gInstances[4] = tank2;
+	gInstances[4] = &tank2;
 
-	ModelInstance tankCannon;
-	tankCannon.asset = &gTank;
-	tankCannon.transform = translate(0, 1.125, -1)*scale(0.1, 0.1, 2.25);
-	tankCannon.positionX = 0;
-	tankCannon.positionY = 1.125;
-	tankCannon.positionZ = -1;
-	gInstances[5] = tankCannon;
 }
 
 template <typename T>
-void SetLightUniform(tdogl::Program* shaders, const char* propertyName, size_t lightIndex, const T& value) {
+void SetLightUniform(cb::Program* shaders, const char* propertyName, size_t lightIndex, const T& value) {
 	std::ostringstream ss;
 	ss << "allLights[" << lightIndex << "]." << propertyName;
 	std::string uniformName = ss.str();
@@ -359,16 +280,16 @@ void SetLightUniform(tdogl::Program* shaders, const char* propertyName, size_t l
 }
 
 //renders a single `ModelInstance`
-static void RenderInstance(const ModelInstance& inst) {
-	ModelAsset* asset = inst.asset;
-	tdogl::Program* shaders = asset->shaders;
+static void RenderInstance(ModelInstance* inst) {
+	cb::ModelAsset* asset = inst->asset;
+	cb::Program* shaders = asset->shaders;
 
 	//bind the shaders
 	shaders->use();
 
 	//set the shader uniforms
 	shaders->setUniform("camera", gCamera.matrix());
-	shaders->setUniform("model", inst.transform);
+	shaders->setUniform("model", inst->transform);
 	shaders->setUniform("materialTex", 0); //set to 0 because the texture will be bound to GL_TEXTURE0
 	shaders->setUniform("materialShininess", asset->shininess);
 	shaders->setUniform("materialSpecularColor", asset->specularColor);
@@ -406,8 +327,7 @@ static void Render() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// render all the instances
-	std::list<ModelInstance>::const_iterator it;
-	for (int i = 0; i < 6; i++) {
+	for (int i = 0; i < 9; i++) {
 		RenderInstance(gInstances[i]);
 	}
 
@@ -415,107 +335,53 @@ static void Render() {
 	glfwSwapBuffers(gWindow);
 }
 
-double* getArray(ModelInstance* gInstances, int j) {
-	double dArray[16] = { 0.0 };
-	const float *pSource = (const float*)glm::value_ptr(gInstances[j].transform);
-	for (int i = 0; i < 16; ++i)
-		dArray[i] = pSource[i];
-	return dArray;
-}
-
 // update the scene based on the time elapsed since last update
 static void Update(float secondsElapsed) {
 	//rotate the first instance in `gInstances`
+	AIMove(eTank);
 	const GLfloat degreesPerSecond = 180.0f;
 	gDegreesRotated = secondsElapsed * gRight;
 	while (gRight > 360.0f) gRight -= 360.0f;
 
-	double * dArray = new double[16];
-	dArray = getArray(gInstances, 1);
-	double * tArray = new double[16];
-	tArray = getArray(gInstances, 2);
-	
-	camx = gInstances[1].positionX - 5 * glm::sin(glm::radians(mRight));
-	camz = gInstances[1].positionZ + 5 * glm::cos(glm::radians(mRight));
-	camy = 2+2* glm::sin(glm::radians(mUp));
+	camx = pTank.GetBody()->positionX - 5 * glm::sin(glm::radians(mRight));
+	camz = pTank.GetBody()->positionZ + 5 * glm::cos(glm::radians(mRight));
+	camy = 2 + 2 * glm::sin(glm::radians(mUp));
 
 	gCamera.setPosition(glm::vec3(camx, camy, camz));
-	glm::mat4 instance2translate;
-	glm::mat4 instance2rotate= rotate(glm::radians(gRight), 0, 1, 0);
-	glm::mat4 instance5translate;
-	glm::mat4 instance5rotate= rotate(glm::radians(gRight), 0, 1, 0);
 	const float mouseSensitivity = 0.1f;
 	double mouseX, mouseY;
+
 	//move position of camera based on WASD keys, and XZ keys for up and down
 	const float moveSpeed = 4.0; //units per second
 	if (glfwGetKey(gWindow, 'S')) {
-		gForward += 0.01;
-		gInstances[1].transform = translate(gInstances[1].positionX + 0.01*glm::sin(glm::radians(gRight)), gInstances[1].positionY, gInstances[1].positionZ + 0.01*glm::cos(glm::radians(gRight)))*rotate(glm::radians(gRight), 0, 1, 0)*scale(1.5, 0.5, 2);
-		instance2translate = translate(gInstances[2].positionX + 0.01*glm::sin(glm::radians(gRight)), gInstances[2].positionY, gInstances[2].positionZ + 0.01*glm::cos(glm::radians(gRight)));
-		gInstances[2].transform = instance2translate*instance2rotate*scale(0.5, 0.75, 1);
-		instance5translate= translate(gInstances[5].positionX + 0.01*glm::sin(glm::radians(gRight)), gInstances[5].positionY, gInstances[5].positionZ + 0.01*glm::cos(glm::radians(gRight)));
-		gInstances[5].transform = instance5translate*instance5rotate*scale(0.1, 0.1, 1);
-
-		double *s1Array = new double[16];
-		s1Array = getArray(gInstances, 1);
-		gInstances[1].setPosition(s1Array[12], s1Array[13], s1Array[14]);
-
-		double *s2Array = new double[16];
-		s2Array = getArray(gInstances, 2);
-		gInstances[2].setPosition(s2Array[12], s2Array[13], s2Array[14]);
-
-		double *s5Array = new double[16];
-		s5Array = getArray(gInstances, 5);
-		gInstances[5].setPosition(s5Array[12], s5Array[13], s5Array[14]);
-		
-
-
-		//gCamera.offsetPosition(secondsElapsed * moveSpeed * -gCamera.forward());
+		pTank.moveBack(MOVEMENT_RATE);
 	}
 	else if (glfwGetKey(gWindow, 'W')) {
-		gForward -= 0.01;
-		gInstances[1].transform = translate(gInstances[1].positionX + 0.01*glm::sin(glm::radians(-gRight)), gInstances[1].positionY, gInstances[1].positionZ - 0.01*glm::cos(glm::radians(gRight)))*rotate(glm::radians(gRight), 0, 1, 0)*scale(1.5, 0.5, 2);
-
-		instance2translate = translate(gInstances[2].positionX + 0.01*glm::sin(glm::radians(-gRight)), gInstances[2].positionY, gInstances[2].positionZ - 0.01*glm::cos(glm::radians(gRight)));
-		
-		gInstances[2].transform = instance2translate*instance2rotate*scale(0.5, 0.75, 1);
-		
-		instance5translate = translate(gInstances[5].positionX + 0.01*(glm::sin(glm::radians(gRight))), gInstances[5].positionY, gInstances[5].positionZ - 0.01*(1 - glm::cos(glm::radians(gRight))));
-		gInstances[5].transform = instance5translate*instance5rotate*scale(0.1, 0.1, 1);
-
-		//gCamera.offsetPosition(secondsElapsed * moveSpeed * gCamera.forward());
-		double *s1Array = new double[16];
-		s1Array = getArray(gInstances, 1);
-		gInstances[1].setPosition(s1Array[12], s1Array[13], s1Array[14]);
-
-		double *s2Array = new double[16];
-		s2Array = getArray(gInstances, 2);
-		gInstances[2].setPosition(s2Array[12], s2Array[13], s2Array[14]);
-
-		double *s5Array = new double[16];
-		s5Array = getArray(gInstances, 5);
-		gInstances[5].setPosition(s5Array[12], s5Array[13], s5Array[14]);
-		std::cout << s5Array[12] << " " << s5Array[13] << " " << s5Array[14] << "   " << std::endl;
+		pTank.move(MOVEMENT_RATE);
 	}
 	if (glfwGetKey(gWindow, 'A')) {
-		gRight += 0.07;
-		gInstances[1].transform = translate(gInstances[1].positionX, gInstances[1].positionY, gInstances[1].positionZ)*rotate(glm::radians(gRight), 0, 1, 0)*scale(1.5, 0.5, 2);
-		
-
-		//gCamera.offsetPosition(secondsElapsed * moveSpeed * -gCamera.right());
+		pTank.rotateBody(TURN_RATE);
 	}
 	else if (glfwGetKey(gWindow, 'D')) {
-		gRight -= 0.07;
-		gInstances[1].transform = translate(gInstances[1].positionX, gInstances[1].positionY, gInstances[1].positionZ)*rotate(glm::radians(gRight), 0, 1, 0)*scale(1.5, 0.5, 2);
-		std::cout << gInstances[5].positionX << std::endl;
-
-		//gCamera.offsetPosition(secondsElapsed * moveSpeed * gCamera.right());
+		pTank.rotateBody(-TURN_RATE);
 	}
 	if (glfwGetKey(gWindow, 'Z')) {
 		gCamera.offsetPosition(secondsElapsed * moveSpeed * -glm::vec3(0, 1, 0));
 	}
 	else if (glfwGetKey(gWindow, 'X')) {
 		gCamera.offsetPosition(secondsElapsed * moveSpeed * glm::vec3(0, 1, 0));
+	}
+	else if (glfwGetKey(gWindow, 'I')) {
+		eTank.move(MOVEMENT_RATE);
+	}
+	else if (glfwGetKey(gWindow, 'K')) {
+		eTank.moveBack(MOVEMENT_RATE);
+	}
+	else if (glfwGetKey(gWindow, 'J')) {
+		eTank.rotateBody(TURN_RATE);
+	}
+	else if (glfwGetKey(gWindow, 'L')) {
+		eTank.rotateBody(-TURN_RATE);
 	}
 
 	//move light
@@ -534,23 +400,18 @@ static void Update(float secondsElapsed) {
 
 
 	 //rotate camera based on mouse movement
-
-
-
 	glfwGetCursorPos(gWindow, &mouseX, &mouseY);
-	gInstances[2].transform = translate(gInstances[2].positionX, gInstances[2].positionY, gInstances[2].positionZ)*rotate(glm::radians(-mRight), 0, 1, 0)*scale(0.5, 0.75, 1);
-	gInstances[5].transform = translate(gInstances[2].positionX+glm::sin(glm::radians(mRight)) + 0.01*(glm::sin(glm::radians(gRight))), gInstances[2].positionY+0.325-glm::sin(glm::radians(mUp)), gInstances[2].positionZ- (glm::cos(glm::radians(-mRight))))*rotate(glm::radians(-mRight), 0, 1, 0)*rotate(-glm::radians(mUp),1,0,0)*scale(0.1, 0.1, 1.5);
-
-	mRight = mRight + mouseSensitivity*(float)mouseX/10;
+	pTank.moveTurret(mUp, mRight);
+	mRight = mRight + mouseSensitivity*(float)mouseX;
 	if (!(mUp > 10 && mouseY > 0 || mUp < -45 && mouseY < 0))
 	{
-		mUp = mUp + mouseSensitivity*(float)mouseY/10;
-		gCamera.offsetOrientation(mouseSensitivity * (float)mouseY/10, mouseSensitivity * (float)mouseX/10);
+		mUp = mUp + mouseSensitivity*(float)mouseY;
+		gCamera.offsetOrientation(mouseSensitivity * (float)mouseY, mouseSensitivity * (float)mouseX);
 	}
 	else {
-		gCamera.offsetOrientation(0, mouseSensitivity * (float)mouseX/10);
+		gCamera.offsetOrientation(0, mouseSensitivity * (float)mouseX);
 	}
-	
+
 	glfwSetCursorPos(gWindow, 0, 0); //reset the mouse, so it doesn't go out of the window
 
 									 //increase or decrease field of view based on mouse wheel
@@ -560,6 +421,7 @@ static void Update(float secondsElapsed) {
 	if (fieldOfView > 130.0f) fieldOfView = 130.0f;
 	gCamera.setFieldOfView(fieldOfView);
 	gScrollY = 0;
+
 }
 
 // records how far the y axis has been scrolled
@@ -607,7 +469,7 @@ void AppMain() {
 	std::cout << "GLSL version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 	std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
 	std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
-	
+
 	// make sure OpenGL version 3.2 API is available
 	if (!GLEW_VERSION_3_2)
 		throw std::runtime_error("OpenGL 3.2 API is not available.");
@@ -619,7 +481,7 @@ void AppMain() {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	// initialise the gWoodenCrate asset
-	LoadTankSteelAsset();
+	LoadBoxAsset();
 
 	// create all the instances in the 3D scene based on the gWoodenCrate asset
 	CreateInstances();
@@ -659,6 +521,7 @@ void AppMain() {
 		lastTime = thisTime;
 
 		// draw one frame
+		AIMove(eTank);
 		Render();
 
 		// check for errors
@@ -673,6 +536,51 @@ void AppMain() {
 
 	// clean up and exit
 	glfwTerminate();
+}
+void AIMove(Tank& t) {
+
+	GLfloat angleDifference = abs(pTank.getXZOrientation() - eTank.getXZOrientation());
+	GLfloat distance = sqrt(pow(pTank.GetBody()->positionZ - t.GetBody()->positionZ, 2) + pow(pTank.GetBody()->positionX - t.GetBody()->positionX, 2));
+	std::cout << distance << std::endl;
+	if (distance > 30) {
+		if (abs(pTank.getXZOrientation() - eTank.getXZOrientation() - TURN_RATE) < angleDifference) {
+			t.rotateBody(TURN_RATE);
+		}
+		else if (abs(pTank.getXZOrientation() - eTank.getXZOrientation() + TURN_RATE) < angleDifference) {
+			t.rotateBody(-TURN_RATE);
+		}
+		else {
+			t.rotateBody(TURN_RATE);
+		}
+		if (distance > sqrt(pow(pTank.GetBody()->positionZ - t.GetBody()->positionZ + MOVEMENT_RATE*glm::cos(glm::radians(t.getXZOrientation())), 2) + pow(pTank.GetBody()->positionX - t.GetBody()->positionX - MOVEMENT_RATE*glm::sin(glm::radians(-t.getXZOrientation())), 2)))
+		{
+			t.move(MOVEMENT_RATE);
+		}
+		else
+		{
+			t.moveBack(MOVEMENT_RATE);
+		}
+	}
+	else{
+		if (abs(pTank.getXZOrientation() - eTank.getXZOrientation() - TURN_RATE) < angleDifference) {
+			t.rotateBody(-TURN_RATE);
+		}
+		else if (abs(pTank.getXZOrientation() - eTank.getXZOrientation() + TURN_RATE) < angleDifference) {
+			t.rotateBody(+TURN_RATE);
+		}
+		else {
+			t.rotateBody(TURN_RATE);
+		}
+		if (distance > sqrt(pow(pTank.GetBody()->positionZ - t.GetBody()->positionZ + MOVEMENT_RATE*glm::cos(glm::radians(t.getXZOrientation())), 2) + pow(pTank.GetBody()->positionX - t.GetBody()->positionX - MOVEMENT_RATE*glm::sin(glm::radians(-t.getXZOrientation())), 2)))
+		{
+			t.moveBack(MOVEMENT_RATE);
+		}
+		else
+		{
+			t.move(MOVEMENT_RATE);
+		}
+	}
+
 }
 
 

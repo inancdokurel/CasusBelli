@@ -1,5 +1,5 @@
 /*
- tdogl::Program
+ cb::Program
  
  Copyright 2012 Thomas Dalling - http://tomdalling.com/
  
@@ -20,7 +20,7 @@
 #include <stdexcept>
 #include <glm/gtc/type_ptr.hpp>
 
-using namespace tdogl;
+using namespace cb;
 
 Program::Program(const std::vector<Shader>& shaders) :
     _object(0)

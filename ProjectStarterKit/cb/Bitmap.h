@@ -1,5 +1,5 @@
 /*
- tdogl::Bitmap
+ cb::Bitmap
  
  Copyright 2012 Thomas Dalling - http://tomdalling.com/
  
@@ -20,13 +20,13 @@
 
 #include <string>
 
-namespace tdogl {
+namespace cb {
     
     /**
      A bitmap image (i.e. a grid of pixels).
      
      This is not really related to OpenGL, but can be used to make OpenGL textures using
-     tdogl::Texture.
+     cb::Texture.
      */
     class Bitmap {
     public:
@@ -55,7 +55,7 @@ namespace tdogl {
         ~Bitmap();
         
         /**
-         Tries to load the given file into a tdogl::Bitmap.
+         Tries to load the given file into a cb::Bitmap.
          */
         static Bitmap bitmapFromFile(std::string filePath);
                 

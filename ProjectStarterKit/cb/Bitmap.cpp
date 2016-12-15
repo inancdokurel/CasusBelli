@@ -1,5 +1,5 @@
 /*
- tdogl::Bitmap
+ cb::Bitmap
  
  Copyright 2012 Thomas Dalling - http://tomdalling.com/
  
@@ -25,7 +25,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-using namespace tdogl;
+using namespace cb;
 
 
 inline unsigned char AverageRGB(unsigned char rgb[3]) {

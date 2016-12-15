@@ -1,5 +1,5 @@
 /*
- tdogl::Shader
+ cb::Shader
  
  Copyright 2012 Thomas Dalling - http://tomdalling.com/
  
@@ -23,7 +23,7 @@
 #include <cassert>
 #include <sstream>
 
-using namespace tdogl;
+using namespace cb;
 
 Shader::Shader(const std::string& shaderCode, GLenum shaderType) :
     _object(0),

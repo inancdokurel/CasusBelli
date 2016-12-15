@@ -1,5 +1,5 @@
 /*
- tdogl::Texture
+ cb::Texture
  
  Copyright 2012 Thomas Dalling - http://tomdalling.com/
  
@@ -21,7 +21,7 @@
 #include <GL/glew.h>
 #include "Bitmap.h"
 
-namespace tdogl {
+namespace cb {
     
     /**
      Represents an OpenGL texture
@@ -31,7 +31,7 @@ namespace tdogl {
         /**
          Creates a texture from a bitmap.
          
-         The texture will be loaded upside down because tdogl::Bitmap pixel data
+         The texture will be loaded upside down because cb::Bitmap pixel data
          is ordered from the top row down, but OpenGL expects the data to
          be from the bottom row up.
          

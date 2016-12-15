@@ -1,5 +1,5 @@
 /*
- tdogl::Camera
+ cb::Camera
 
  Copyright 2012 Thomas Dalling - http://tomdalling.com/
 
@@ -20,7 +20,7 @@
 #include "Camera.h"
 #include <glm/gtc/matrix_transform.hpp>
 
-using namespace tdogl;
+using namespace cb;
 
 static const float MaxVerticalAngle = 85.0f; //must be less than 90 to avoid gimbal lock
 
