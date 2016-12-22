@@ -242,7 +242,7 @@ static void CreateInstances() {
 
 	pTank = Tank(0, 0.5, 0, gTank, gTerrain, gTank, 0);
 
-	eTank = Tank(0, 0.5, -20, gTank, gTerrain, gTank, 0);
+	eTank = Tank(0, 0.5, -120, gTank, gTerrain, gTank, 0);
 
 	gInstances[1] = pTank.GetBody();
 	gInstances[2] = pTank.GetTurret();
@@ -541,7 +541,6 @@ void AIMove(Tank& t) {
 
 	GLfloat angleDifference = abs(pTank.getXZOrientation() - eTank.getXZOrientation());
 	GLfloat distance = sqrt(pow(pTank.GetBody()->positionZ - t.GetBody()->positionZ, 2) + pow(pTank.GetBody()->positionX - t.GetBody()->positionX, 2));
-	std::cout << distance << std::endl;
 	if (distance > 30) {
 		if (abs(pTank.getXZOrientation() - eTank.getXZOrientation() - TURN_RATE) < angleDifference) {
 			t.rotateBody(TURN_RATE);
@@ -580,7 +579,9 @@ void AIMove(Tank& t) {
 			t.move(MOVEMENT_RATE);
 		}
 	}
-
+	if (distance < 40) {
+		std::cout << "BANG" << std::endl;
+	}
 }
 
 
