@@ -11,11 +11,9 @@ namespace cb {
 			xzAngle = 0;
 			body = nullptr;
 			yAngle = 0;
-			g = 1;
-			v = 1;
 			timeEllapsed = 0;
 		}
-		Projectile(GLfloat xPos, GLfloat yPos, GLfloat zPos, ModelAsset & bodyAsset, GLfloat xzA, GLfloat yA, GLfloat grav, GLfloat velo) {
+		Projectile(GLfloat xPos, GLfloat yPos, GLfloat zPos, ModelAsset & bodyAsset, GLfloat xzA, GLfloat yA) {
 			x = xPos;
 			y = yPos;
 			z = zPos;
@@ -27,12 +25,10 @@ namespace cb {
 			body->positionX = x;
 			body->positionY = y;
 			body->positionZ = z;
-			g = grav;
-			v = velo;
 			timeEllapsed = 0;
 		}
 		ModelInstance*  getBody(){ return body;}
-		void move(float t) {
+		void move(float t,float g,float v) {
 			timeEllapsed += t;
 			std::cout << (z - glm::cos(glm::radians(-yAngle))*glm::cos(glm::radians(xzAngle))*v*timeEllapsed) << std::endl;
 			body->transform=translate(x + glm::cos(glm::radians(-yAngle))*glm::sin(glm::radians(xzAngle))*v*timeEllapsed, y + v*timeEllapsed*glm::sin(glm::radians(-yAngle)) - 0.5f*timeEllapsed*timeEllapsed*g, z - glm::cos(glm::radians(-yAngle))*glm::cos(glm::radians(xzAngle))*v*timeEllapsed)*scale(0.1f,0.1f,0.1f);
@@ -40,11 +36,12 @@ namespace cb {
 
 	private:
 		ModelInstance* body;
-		GLfloat x, y, z,v,g;
+		GLfloat x, y, z;
 		GLfloat xzAngle = 0;
 		GLfloat yAngle = 0;
 		GLfloat timeEllapsed = 0;
 	};
 
-#endif
+
 }
+#endif

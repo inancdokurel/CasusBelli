@@ -1,5 +1,7 @@
-#pragma once
+#ifndef TANK_H
+#define TANK_H
 #include "Structures.h"
+#include "Projectile.h"
 #include <chrono>
 const double MIN_ATTACK_INTERVAL = 2000;
 
@@ -78,18 +80,20 @@ namespace cb {
 			rightOrientation = rightAngle;
 			turret->transform = translate(turret->positionX, turret->positionY, turret->positionZ)*rotate(glm::radians(-rightOrientation), 0, 1, 0)*scale(0.5, 0.75, 1);
 			cannon->transform = translate(turret->positionX + glm::sin(glm::radians(rightOrientation)) + 0.01*(glm::sin(glm::radians(xzOrientation))), turret->positionY +0.325 - glm::sin(glm::radians(upOrientation)), turret->positionZ - (glm::cos(glm::radians(-rightOrientation))))*rotate(glm::radians(-rightOrientation), 0, 1, 0)*rotate(-glm::radians(upOrientation), 1, 0, 0)*scale(0.1, 0.1, 1);
+			cannon->setPosition(turret->positionX + glm::sin(glm::radians(rightOrientation)) + 0.01*(glm::sin(glm::radians(xzOrientation))), turret->positionY + 0.325 - glm::sin(glm::radians(upOrientation)), turret->positionZ - (glm::cos(glm::radians(-rightOrientation))));
 		}
 		void removeHealth(double dmg) {
 			health -= dmg;
 		}
-		void fire() {
+		Projectile Tank::shoot(ModelAsset gBall){
 			std::chrono::steady_clock::time_point currentAttack = std::chrono::steady_clock::now();
 			double duration = std::chrono::duration_cast<std::chrono::milliseconds>(currentAttack - lastAttack).count();
 			if (duration > MIN_ATTACK_INTERVAL) {
 				std::cout << "BANG" << std::endl;
 				lastAttack = currentAttack;
-			}
-			
+				return Projectile(cannon->positionX, cannon->positionY, cannon->positionZ, gBall, rightOrientation, upOrientation);
+			}	
+			return Projectile();
 		}
 		GLfloat getXZOrientation() { return xzOrientation;}
 		GLfloat getUpOrientation() { return upOrientation; }
@@ -106,3 +110,4 @@ namespace cb {
 		
 	};
 }
+#endif

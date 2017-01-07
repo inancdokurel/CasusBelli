@@ -331,7 +331,7 @@ static void CreateInstances() {
 
 	eTank = Tank(0, 0.5, -120, gTank, gTerrain, gTank, 0);
 
-	p = Projectile(0, 2, -1, gBall, 0, -10, 10, 10);
+	p = Projectile(0, 2, -1, gBall, 0, -10);
 	gInstances.push_back(p.getBody());
 
 	gInstances.push_back(pTank.GetBody());
@@ -467,7 +467,7 @@ static void Update(float secondsElapsed) {
 		pTank.removeHealth(-10);
 	}
 	else if (glfwGetKey(gWindow, 'K')) {
-		p.move(0.001f);
+		p.move(0.001f,GRAVITY,PROJECTILE_SPEED);
 	}
 
 	//move light
@@ -692,7 +692,9 @@ void AIMove(Tank& t) {
 	
 	
 	if (distance < MAX_ATTACK_DISTANCE) {
-		t.fire();
+		Projectile pf=t.shoot(gBall);
+		if(pf.getBody()!=nullptr)
+			gInstances.push_back(pf.getBody());
 	}
 	
 }
