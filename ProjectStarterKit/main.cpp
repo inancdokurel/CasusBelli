@@ -60,6 +60,8 @@ const glm::vec2 SCREEN_SIZE(1366, 768);
 
 const GLfloat TURN_RATE = 0.07;
 const GLfloat MOVEMENT_RATE = 0.01;
+const GLfloat MAX_ATTACK_DISTANCE = 40;
+
 
 // globals
 GLFWwindow* gWindow = NULL;
@@ -372,16 +374,10 @@ static void Update(float secondsElapsed) {
 		gCamera.offsetPosition(secondsElapsed * moveSpeed * glm::vec3(0, 1, 0));
 	}
 	else if (glfwGetKey(gWindow, 'I')) {
-		eTank.move(MOVEMENT_RATE);
-	}
-	else if (glfwGetKey(gWindow, 'K')) {
-		eTank.moveBack(MOVEMENT_RATE);
+		pTank.removeHealth(10);
 	}
 	else if (glfwGetKey(gWindow, 'J')) {
-		eTank.rotateBody(TURN_RATE);
-	}
-	else if (glfwGetKey(gWindow, 'L')) {
-		eTank.rotateBody(-TURN_RATE);
+		pTank.removeHealth(-10);
 	}
 
 	//move light
@@ -541,7 +537,8 @@ void AIMove(Tank& t) {
 
 	GLfloat angleDifference = abs(pTank.getXZOrientation() - eTank.getXZOrientation());
 	GLfloat distance = sqrt(pow(pTank.GetBody()->positionZ - t.GetBody()->positionZ, 2) + pow(pTank.GetBody()->positionX - t.GetBody()->positionX, 2));
-	if (distance > 30) {
+	GLfloat minDistance = 30 + (pTank.getHealth() - t.getHealth())* 0.5;
+	if (distance > minDistance) {
 		if (abs(pTank.getXZOrientation() - eTank.getXZOrientation() - TURN_RATE) < angleDifference) {
 			t.rotateBody(TURN_RATE);
 		}
@@ -579,8 +576,8 @@ void AIMove(Tank& t) {
 			t.move(MOVEMENT_RATE);
 		}
 	}
-	if (distance < 40) {
-		std::cout << "BANG" << std::endl;
+	if (distance < MAX_ATTACK_DISTANCE) {
+		t.fire();
 	}
 }
 

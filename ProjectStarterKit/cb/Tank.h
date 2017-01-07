@@ -1,5 +1,7 @@
 #pragma once
 #include "Structures.h"
+#include <chrono>
+const double MIN_ATTACK_INTERVAL = 1000;
 
 namespace cb {
 
@@ -13,6 +15,9 @@ namespace cb {
 			body = nullptr;
 			turret = nullptr;
 			cannon = nullptr;
+
+			health = 100;
+			lastAttack = std::chrono::steady_clock::now();
 		}
 		Tank(GLfloat xPos, GLfloat yPos, GLfloat zPos, ModelAsset & bodyAsset, ModelAsset & turretAsset, ModelAsset & cannonAsset,GLfloat xz) {
 			x = xPos;
@@ -39,6 +44,9 @@ namespace cb {
 			cannon->positionX = x;
 			cannon->positionY = y+0.675;
 			cannon->positionZ = z - 1;
+
+			health = 100;
+			lastAttack = std::chrono::steady_clock::now();
 		}
 		void rotateBody(GLfloat turnRate) {
 			xzOrientation += turnRate;
@@ -71,13 +79,30 @@ namespace cb {
 			turret->transform = translate(turret->positionX, turret->positionY, turret->positionZ)*rotate(glm::radians(-rightOrientation), 0, 1, 0)*scale(0.5, 0.75, 1);
 			cannon->transform = translate(turret->positionX + glm::sin(glm::radians(rightOrientation)) + 0.01*(glm::sin(glm::radians(xzOrientation))), turret->positionY +0.325 - glm::sin(glm::radians(upOrientation)), turret->positionZ - (glm::cos(glm::radians(-rightOrientation))))*rotate(glm::radians(-rightOrientation), 0, 1, 0)*rotate(-glm::radians(upOrientation), 1, 0, 0)*scale(0.1, 0.1, 1);
 		}
+		void removeHealth(double dmg) {
+			health -= dmg;
+		}
+		void fire() {
+			std::chrono::steady_clock::time_point currentAttack = std::chrono::steady_clock::now();
+			double duration = std::chrono::duration_cast<std::chrono::milliseconds>(currentAttack - lastAttack).count();
+			if (duration > MIN_ATTACK_INTERVAL) {
+				std::cout << "BANG" << std::endl;
+				lastAttack = currentAttack;
+			}
+			
+		}
 		GLfloat getXZOrientation() { return xzOrientation;}
 		GLfloat getUpOrientation() { return upOrientation; }
 		GLfloat getRightOrientation() { return rightOrientation; }
+		double getHealth() { return health; }
+		
 	private:
 		ModelInstance* cannon, *turret, *body;
 		GLfloat x, y, z;
 		GLfloat xzOrientation=0;
 		GLfloat upOrientation = 0, rightOrientation = 0;
+		double health;
+		std::chrono::steady_clock::time_point lastAttack;
+		
 	};
 }
