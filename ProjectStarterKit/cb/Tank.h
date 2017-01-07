@@ -1,7 +1,7 @@
 #pragma once
 #include "Structures.h"
 #include <chrono>
-const double MIN_ATTACK_INTERVAL = 1000;
+const double MIN_ATTACK_INTERVAL = 2000;
 
 namespace cb {
 

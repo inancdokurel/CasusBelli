@@ -40,6 +40,7 @@ limitations under the License.
 #include "cb/Structures.h"
 #include "cb/Tank.h"
 
+# define PI          3.141592653589793238462643383279502884L
 
 /*
 Represents a textured geometry asset
@@ -61,7 +62,10 @@ const glm::vec2 SCREEN_SIZE(1366, 768);
 const GLfloat TURN_RATE = 0.07;
 const GLfloat MOVEMENT_RATE = 0.01;
 const GLfloat MAX_ATTACK_DISTANCE = 40;
-
+const GLfloat PROJECTILE_SPEED = 20;
+const GLfloat GRAVITY = 10;
+const GLfloat TURRET_HORIZONTAL_RATE = 0.1f;
+const GLfloat TURRET_VERTICAL_RATE = 0.1f;
 
 // globals
 GLFWwindow* gWindow = NULL;
@@ -253,7 +257,7 @@ static void CreateInstances() {
 	gInstances[6] = eTank.GetBody();
 	gInstances[7] = eTank.GetTurret();
 	gInstances[8] = eTank.GetCannon();
-	eTank.moveTurret(-10, 90);
+	eTank.moveTurret(-10, 0);
 
 	tank1.asset = &gTank;
 	tank1.transform = translate(-5, 1, -10)*scale(1, 1, 1);
@@ -576,9 +580,34 @@ void AIMove(Tank& t) {
 			t.move(MOVEMENT_RATE);
 		}
 	}
+
+	GLfloat aimDistance = sqrt(pow(pTank.GetBody()->positionZ - (t.GetTurret()->positionZ-glm::cos(glm::radians(t.getRightOrientation()))), 2) + pow(pTank.GetBody()->positionX - (t.GetTurret()->positionX + glm::sin(glm::radians(t.getRightOrientation()))), 2));
+	if (aimDistance > sqrt(pow(pTank.GetBody()->positionZ - (t.GetTurret()->positionZ - glm::cos(glm::radians(t.getRightOrientation() + TURRET_HORIZONTAL_RATE))), 2) + pow(pTank.GetBody()->positionX - (t.GetTurret()->positionX + glm::sin(glm::radians(t.getRightOrientation() + TURRET_HORIZONTAL_RATE))), 2))){
+		t.moveTurret(t.getUpOrientation(), t.getRightOrientation() + TURRET_HORIZONTAL_RATE);
+	}
+	else if(aimDistance < sqrt(pow(pTank.GetBody()->positionZ - (t.GetTurret()->positionZ - glm::cos(glm::radians(t.getRightOrientation() + TURRET_HORIZONTAL_RATE))), 2) + pow(pTank.GetBody()->positionX - (t.GetTurret()->positionX + glm::sin(glm::radians(t.getRightOrientation() + TURRET_HORIZONTAL_RATE))), 2))) {
+		t.moveTurret(t.getUpOrientation(), t.getRightOrientation() - TURRET_HORIZONTAL_RATE);
+	}
+
+	
+	float sin2theta = (distance*GRAVITY) / (PROJECTILE_SPEED * PROJECTILE_SPEED);
+	float theta2 = asin(sin2theta);
+	float angleToFire = ((theta2* 180.0f) / PI) / 2;
+	if (angleToFire != angleToFire)
+		angleToFire = t.getUpOrientation();
+	if (angleToFire > -1 * (t.getUpOrientation())) {
+		t.moveTurret(t.getUpOrientation() - TURRET_VERTICAL_RATE, t.getRightOrientation());
+	}
+	else if (angleToFire < -1 * (t.getUpOrientation())) {
+		t.moveTurret(t.getUpOrientation() + TURRET_VERTICAL_RATE, t.getRightOrientation());
+	}
+	
+	
+	
 	if (distance < MAX_ATTACK_DISTANCE) {
 		t.fire();
 	}
+	
 }
 
 
