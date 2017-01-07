@@ -39,6 +39,8 @@ limitations under the License.
 #include "cb/Camera.h"
 #include "cb/Structures.h"
 #include "cb/Tank.h"
+#include "cb/Sphere.hpp"
+#include "cb/Projectile.h"
 
 # define PI          3.141592653589793238462643383279502884L
 
@@ -62,8 +64,8 @@ const glm::vec2 SCREEN_SIZE(1366, 768);
 const GLfloat TURN_RATE = 0.07;
 const GLfloat MOVEMENT_RATE = 0.01;
 const GLfloat MAX_ATTACK_DISTANCE = 40;
-const GLfloat PROJECTILE_SPEED = 20;
-const GLfloat GRAVITY = 10;
+const GLfloat PROJECTILE_SPEED = 1;
+const GLfloat GRAVITY = 1;
 const GLfloat TURRET_HORIZONTAL_RATE = 0.1f;
 const GLfloat TURRET_VERTICAL_RATE = 0.1f;
 
@@ -73,9 +75,8 @@ double gScrollY = 0.0;
 cb::Camera gCamera;
 cb::ModelAsset gTank;
 cb::ModelAsset gTerrain;
-std::vector<ModelInstance*> gInstances(10);
-GLfloat gDegreesRotated = 0.0f;
-GLfloat gRight = 0.0f;
+cb::ModelAsset gBall;
+std::vector<ModelInstance*> gInstances;
 GLfloat gForward = 0.0f;
 std::vector<cb::Light> gLights;
 GLfloat mRight = 0.0f;
@@ -85,6 +86,7 @@ GLfloat camy;
 GLfloat camz;
 ModelInstance terrain, tank1, tank2;
 Tank pTank, eTank;
+Projectile p;
 
 void AIMove(Tank& tank);
 
@@ -230,6 +232,84 @@ static void LoadBoxAsset() {
 	// unbind the VAO
 	glBindVertexArray(0);
 }
+void LoadBallAsset(int depth, ModelAsset & gBall) {
+
+	// set all the elem ents of gWoodenCrate
+
+	gBall.shaders = LoadShaders("vertex-shader.txt", "fragment-shader.txt");
+
+	gBall.drawType = GL_TRIANGLES;
+
+	gBall.drawStart = 0;
+
+	gBall.drawCount = 8 * pow(4, depth) * 3;
+
+	gBall.texture = LoadTexture("wooden-crate.jpg");
+
+	gBall.shininess = 80.0;
+
+	gBall.specularColor = glm::vec3(1.0f, 1.0f, 1.0f);
+
+	glGenBuffers(1, &gBall.vbo);
+
+	glGenVertexArrays(1, &gBall.vao);
+
+
+
+	// bind the VAO
+
+	glBindVertexArray(gBall.vao);
+
+
+
+	// bind the VBO
+
+	glBindBuffer(GL_ARRAY_BUFFER, gBall.vbo);
+
+
+
+	// Make a cube out of triangles (two triangles per side)
+
+	Sphere sphere(glm::vec4(), glm::vec3(0, 0, 0), 1.0f);
+
+	GLfloat* vertexDataPointer = sphere.render(depth);
+
+
+
+	glBufferData(GL_ARRAY_BUFFER, 64 * 3 * pow(4, depth + 1), vertexDataPointer, GL_STATIC_DRAW);
+
+
+
+	// connect the xyz to the "vert" attribute of the vertex shader
+
+	glEnableVertexAttribArray(gBall.shaders->attrib("vert"));
+
+	glVertexAttribPointer(gBall.shaders->attrib("vert"), 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), NULL);
+
+
+
+	// connect the uv coords to the "vertTexCoord" attribute of the vertex shader
+
+	glEnableVertexAttribArray(gBall.shaders->attrib("vertTexCoord"));
+
+	glVertexAttribPointer(gBall.shaders->attrib("vertTexCoord"), 2, GL_FLOAT, GL_TRUE, 8 * sizeof(GLfloat), (const GLvoid*)(3 * sizeof(GLfloat)));
+
+
+
+	// connect the normal to the "vertNormal" attribute of the vertex shader
+
+	glEnableVertexAttribArray(gBall.shaders->attrib("vertNormal"));
+
+	glVertexAttribPointer(gBall.shaders->attrib("vertNormal"), 3, GL_FLOAT, GL_TRUE, 8 * sizeof(GLfloat), (const GLvoid*)(5 * sizeof(GLfloat)));
+
+
+
+	// unbind the VAO
+
+	glBindVertexArray(0);
+
+}
+
 
 
 
@@ -243,20 +323,24 @@ static void CreateInstances() {
 
 	terrain.asset = &gTerrain;
 	terrain.transform = translate(-1024, 0, -1024)*scale(2048, 0, 2048);
-	gInstances[0] = &terrain;
+	gInstances.push_back(&terrain);
+	
 
 
 	pTank = Tank(0, 0.5, 0, gTank, gTerrain, gTank, 0);
 
 	eTank = Tank(0, 0.5, -120, gTank, gTerrain, gTank, 0);
 
-	gInstances[1] = pTank.GetBody();
-	gInstances[2] = pTank.GetTurret();
-	gInstances[5] = pTank.GetCannon();
+	p = Projectile(0, 2, -1, gBall, 0, -10, 10, 10);
+	gInstances.push_back(p.getBody());
 
-	gInstances[6] = eTank.GetBody();
-	gInstances[7] = eTank.GetTurret();
-	gInstances[8] = eTank.GetCannon();
+	gInstances.push_back(pTank.GetBody());
+	gInstances.push_back(pTank.GetTurret());
+	gInstances.push_back(pTank.GetCannon());
+
+	gInstances.push_back(eTank.GetBody());
+	gInstances.push_back(eTank.GetTurret());
+	gInstances.push_back(eTank.GetCannon());
 	eTank.moveTurret(-10, 0);
 
 	tank1.asset = &gTank;
@@ -264,7 +348,7 @@ static void CreateInstances() {
 	tank1.positionX = -5;
 	tank1.positionY = 1;
 	tank1.positionZ = -10;
-	gInstances[3] = &tank1;
+	gInstances.push_back(&tank1);
 
 
 	tank2.asset = &gTank;
@@ -272,7 +356,8 @@ static void CreateInstances() {
 	tank2.positionX = 5;
 	tank2.positionY = 1;
 	tank2.positionZ = -10;
-	gInstances[4] = &tank2;
+	gInstances.push_back(&tank2);
+
 
 }
 
@@ -333,7 +418,7 @@ static void Render() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// render all the instances
-	for (int i = 0; i < 9; i++) {
+	for (int i = 0; i < gInstances.size(); i++) {
 		RenderInstance(gInstances[i]);
 	}
 
@@ -346,8 +431,6 @@ static void Update(float secondsElapsed) {
 	//rotate the first instance in `gInstances`
 	AIMove(eTank);
 	const GLfloat degreesPerSecond = 180.0f;
-	gDegreesRotated = secondsElapsed * gRight;
-	while (gRight > 360.0f) gRight -= 360.0f;
 
 	camx = pTank.GetBody()->positionX - 5 * glm::sin(glm::radians(mRight));
 	camz = pTank.GetBody()->positionZ + 5 * glm::cos(glm::radians(mRight));
@@ -382,6 +465,9 @@ static void Update(float secondsElapsed) {
 	}
 	else if (glfwGetKey(gWindow, 'J')) {
 		pTank.removeHealth(-10);
+	}
+	else if (glfwGetKey(gWindow, 'K')) {
+		p.move(0.001f);
 	}
 
 	//move light
@@ -482,6 +568,7 @@ void AppMain() {
 
 	// initialise the gWoodenCrate asset
 	LoadBoxAsset();
+	LoadBallAsset(6,gBall);
 
 	// create all the instances in the 3D scene based on the gWoodenCrate asset
 	CreateInstances();
