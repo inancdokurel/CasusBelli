@@ -1,7 +1,6 @@
 #ifndef TANK_H
 #define TANK_H
 #include "Structures.h"
-#include "Projectile.h"
 #include <chrono>
 const double MIN_ATTACK_INTERVAL = 2000;
 
@@ -85,15 +84,15 @@ namespace cb {
 		void removeHealth(double dmg) {
 			health -= dmg;
 		}
-		Projectile Tank::shoot(ModelAsset gBall){
+		bool Tank::shoot(){
 			std::chrono::steady_clock::time_point currentAttack = std::chrono::steady_clock::now();
 			double duration = std::chrono::duration_cast<std::chrono::milliseconds>(currentAttack - lastAttack).count();
 			if (duration > MIN_ATTACK_INTERVAL) {
 				std::cout << "BANG" << std::endl;
 				lastAttack = currentAttack;
-				return Projectile(cannon->positionX, cannon->positionY, cannon->positionZ, gBall, rightOrientation, upOrientation);
+				return true;;
 			}	
-			return Projectile();
+			return false;
 		}
 		GLfloat getXZOrientation() { return xzOrientation;}
 		GLfloat getUpOrientation() { return upOrientation; }

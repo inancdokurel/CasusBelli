@@ -87,6 +87,7 @@ GLfloat camz;
 ModelInstance terrain, tank1, tank2;
 Tank pTank, eTank;
 Projectile p;
+std::vector<Projectile*> projectiles;
 
 void AIMove(Tank& tank);
 
@@ -467,7 +468,9 @@ static void Update(float secondsElapsed) {
 		pTank.removeHealth(-10);
 	}
 	else if (glfwGetKey(gWindow, 'K')) {
-		p.move(0.001f,GRAVITY,PROJECTILE_SPEED);
+		/*Projectile* ptr = projectiles.begin();
+		gInstances.erase((projectiles.begin()+1)->body);
+		projectiles.erase(projectiles.begin());*/
 	}
 
 	//move light
@@ -692,9 +695,11 @@ void AIMove(Tank& t) {
 	
 	
 	if (distance < MAX_ATTACK_DISTANCE) {
-		Projectile pf=t.shoot(gBall);
-		if(pf.getBody()!=nullptr)
-			gInstances.push_back(pf.getBody());
+		if (t.shoot()) {
+			Projectile* shot= new Projectile(t.GetCannon()->positionX, t.GetCannon()->positionY, t.GetCannon()->positionZ, gBall, t.getRightOrientation(), t.getUpOrientation());
+			gInstances.push_back(shot->getBody());
+			projectiles.push_back(shot);
+		}
 	}
 	
 }
