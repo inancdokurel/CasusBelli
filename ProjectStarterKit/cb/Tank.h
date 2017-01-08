@@ -2,7 +2,7 @@
 #define TANK_H
 #include "Structures.h"
 #include <chrono>
-const double MIN_ATTACK_INTERVAL = 10000;
+const double MIN_ATTACK_INTERVAL = 3000;
 
 namespace cb {
 

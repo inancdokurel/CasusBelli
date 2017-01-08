@@ -85,12 +85,14 @@ GLfloat camx;
 GLfloat camy;
 GLfloat camz;
 ModelInstance terrain, tank1, tank2;
-Tank pTank, eTank;
-Projectile p;
+Tank pTank, eTank, eTank2;
+Projectile p,p2;
 std::vector<Projectile*> projectiles;
 
 void AIMove(Tank& tank);
 void ProjectileMove(float t);
+bool ProjectileCollide(Tank & t, Projectile* projectile);
+GLfloat distance(GLfloat x, GLfloat y, GLfloat z, GLfloat px, GLfloat py, GLfloat pz);
 
 
 // returns a new cb::Program created from the given vertex and fragment shader filenames
@@ -331,17 +333,24 @@ static void CreateInstances() {
 	pTank = Tank(0, 0.5, 0, gTank, gTerrain, gTank, 0);
 
 	eTank = Tank(0, 0.5, -120, gTank, gTerrain, gTank, 0);
+	eTank2 = Tank(0, 0.5, 120, gTank, gTerrain, gTank, 0);
 
-	p = Projectile(0, 2, -1, gBall, 0, -10);
-	gInstances.push_back(p.getBody());
+	//p = Projectile(0, 0.5, -1, gBall, 0, 0);
+	//p2 = Projectile(0, 0.5, 1, gBall, 0, 0);
 
 	gInstances.push_back(pTank.GetBody());
+	gInstances.push_back(eTank.GetBody());
+	gInstances.push_back(eTank2.GetBody());
+
 	gInstances.push_back(pTank.GetTurret());
 	gInstances.push_back(pTank.GetCannon());
-
-	gInstances.push_back(eTank.GetBody());
+	
 	gInstances.push_back(eTank.GetTurret());
 	gInstances.push_back(eTank.GetCannon());
+
+	gInstances.push_back(eTank2.GetTurret());
+	gInstances.push_back(eTank2.GetCannon());
+
 	eTank.moveTurret(-10, 0);
 
 	tank1.asset = &gTank;
@@ -358,6 +367,9 @@ static void CreateInstances() {
 	tank2.positionY = 1;
 	tank2.positionZ = -10;
 	gInstances.push_back(&tank2);
+
+	//gInstances.push_back(p.getBody());
+	//gInstances.push_back(p2.getBody());
 
 
 }
@@ -429,8 +441,7 @@ static void Render() {
 
 // update the scene based on the time elapsed since last update
 static void Update(float secondsElapsed) {
-	//rotate the first instance in `gInstances`
-	AIMove(eTank);
+	//rotate the first instance in `gInstances
 	const GLfloat degreesPerSecond = 180.0f;
 
 	camx = pTank.GetBody()->positionX - 5 * glm::sin(glm::radians(mRight));
@@ -468,9 +479,11 @@ static void Update(float secondsElapsed) {
 		pTank.removeHealth(-10);
 	}
 	else if (glfwGetKey(gWindow, 'K')) {
-		Projectile* shot = new Projectile(eTank.GetCannon()->positionX, eTank.GetCannon()->positionY, eTank.GetCannon()->positionZ, gBall, eTank.getRightOrientation(), eTank.getUpOrientation());
-		gInstances.push_back(shot->getBody());
-		projectiles.push_back(shot);
+		if (pTank.shoot()) {
+			Projectile* shot = new Projectile(pTank.GetTurret()->positionX + 3*glm::cos(glm::radians(-pTank.getUpOrientation()))*glm::sin(glm::radians(pTank.getRightOrientation())), pTank.GetTurret()->positionY + 3 * glm::sin(glm::radians(-pTank.getUpOrientation())), pTank.GetTurret()->positionZ- 3 * glm::cos(glm::radians(-pTank.getUpOrientation()))*glm::cos(glm::radians(pTank.getRightOrientation())), gBall, pTank.getRightOrientation(), pTank.getUpOrientation());
+			gInstances.push_back(shot->getBody());
+			projectiles.push_back(shot);
+		}
 	}
 
 	//move light
@@ -613,6 +626,7 @@ void AppMain() {
 		
 
 		AIMove(eTank);
+		AIMove(eTank2);
 		Render();
 
 		// check for errors
@@ -697,7 +711,7 @@ void AIMove(Tank& t) {
 	
 	if (distance < MAX_ATTACK_DISTANCE) {
 		if (t.shoot()) {
-			Projectile* shot= new Projectile(t.GetCannon()->positionX, t.GetCannon()->positionY, t.GetCannon()->positionZ, gBall, t.getRightOrientation(), t.getUpOrientation());
+			Projectile* shot = new Projectile(t.GetTurret()->positionX + 3 * glm::cos(glm::radians(-t.getUpOrientation()))*glm::sin(glm::radians(t.getRightOrientation())), t.GetTurret()->positionY + 3 * glm::sin(glm::radians(-t.getUpOrientation())), t.GetTurret()->positionZ - 3 * glm::cos(glm::radians(-t.getUpOrientation()))*glm::cos(glm::radians(t.getRightOrientation())), gBall, t.getRightOrientation(), t.getUpOrientation());
 			gInstances.push_back(shot->getBody());
 			projectiles.push_back(shot);
 		}
@@ -707,7 +721,76 @@ void AIMove(Tank& t) {
 void ProjectileMove(float secondsEllapsed) {
 	for (int i = 0;i < projectiles.size();i++) {
 		projectiles[i]->move(secondsEllapsed, GRAVITY, PROJECTILE_SPEED);
+		if (projectiles[i]->getY() <= -1) {
+			for (int j = 0;j < gInstances.size();j++) {
+				if (projectiles[i]->getBody() == gInstances[j]) {
+					gInstances.erase(gInstances.begin() + j);
+				}
+			}
+			projectiles.erase(projectiles.begin() + i);
+			i--;
+		}
+		else {
+			if (ProjectileCollide(pTank, projectiles[i])) {
+				pTank.removeHealth(20);
+				for (int j = 0;j < gInstances.size();j++) {
+					if (projectiles[i]->getBody() == gInstances[j]) {
+						gInstances.erase(gInstances.begin() + j);
+					}
+				}
+				projectiles.erase(projectiles.begin() + i);
+				i--;
+			}
+			else if (ProjectileCollide(eTank, projectiles[i])) {
+				eTank.removeHealth(20);
+				for (int j = 0;j < gInstances.size();j++) {
+					if (projectiles[i]->getBody() == gInstances[j]) {
+						gInstances.erase(gInstances.begin() + j);
+					}
+				}
+				projectiles.erase(projectiles.begin() + i);
+				i--;
+			}
+			else if (ProjectileCollide(eTank2, projectiles[i])) {
+				eTank2.removeHealth(20);
+				for (int j = 0;j < gInstances.size();j++) {
+					if (projectiles[i]->getBody() == gInstances[j]) {
+						gInstances.erase(gInstances.begin() + j);
+					}
+				}
+				projectiles.erase(projectiles.begin() + i);
+				i--;
+			}
+		}
 	}
+}
+bool ProjectileCollide(Tank & t, Projectile* projectile){
+	ModelInstance* tankBody = t.GetBody();
+	GLfloat centerX= tankBody->positionX;
+	GLfloat centerY = tankBody->positionY;
+	GLfloat centerZ = tankBody->positionZ;
+
+	GLfloat xzOrientation=t.getXZOrientation();
+	
+	GLfloat sp1X = centerX + glm::sin(glm::radians(xzOrientation));
+	GLfloat sp1Y = centerY;
+	GLfloat sp1Z = centerZ - glm::cos(glm::radians(xzOrientation));
+
+	GLfloat sp2X = centerX - glm::sin(glm::radians(xzOrientation));
+	GLfloat sp2Y = centerY;
+	GLfloat sp2Z = centerZ + glm::cos(glm::radians(xzOrientation));
+
+	GLfloat pX = projectile->getX();
+	GLfloat pY = projectile->getY();
+	GLfloat pZ = projectile->getZ();
+
+	if (distance(sp1X, sp1Y, sp1Z, pX, pY, pZ) <= 1.6 || distance(sp2X, sp2Y, sp2Z, pX, pY, pZ) <= 1.6) {
+		return true;
+	}
+	return false;
+}
+GLfloat distance(GLfloat x, GLfloat y, GLfloat z, GLfloat px, GLfloat py, GLfloat pz) {
+	return sqrt(pow(px - x, 2) + pow(py - y, 2) + pow(pz - z, 2));
 }
 
 int main(int argc, char *argv[]) {
