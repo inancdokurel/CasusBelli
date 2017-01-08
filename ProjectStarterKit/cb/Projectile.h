@@ -31,6 +31,7 @@ namespace cb {
 		void move(float t,float g,float v) {
 			timeEllapsed += t;
 			std::cout << (z - glm::cos(glm::radians(-yAngle))*glm::cos(glm::radians(xzAngle))*v*timeEllapsed) << std::endl;
+			std::cout << y + v*timeEllapsed*glm::sin(glm::radians(-yAngle)) - 0.5f*timeEllapsed*timeEllapsed*g << std::endl;
 			body->transform=translate(x + glm::cos(glm::radians(-yAngle))*glm::sin(glm::radians(xzAngle))*v*timeEllapsed, y + v*timeEllapsed*glm::sin(glm::radians(-yAngle)) - 0.5f*timeEllapsed*timeEllapsed*g, z - glm::cos(glm::radians(-yAngle))*glm::cos(glm::radians(xzAngle))*v*timeEllapsed)*scale(0.1f,0.1f,0.1f);
 		}
 

@@ -2,7 +2,7 @@
 #define TANK_H
 #include "Structures.h"
 #include <chrono>
-const double MIN_ATTACK_INTERVAL = 2000;
+const double MIN_ATTACK_INTERVAL = 10000;
 
 namespace cb {
 
@@ -88,7 +88,6 @@ namespace cb {
 			std::chrono::steady_clock::time_point currentAttack = std::chrono::steady_clock::now();
 			double duration = std::chrono::duration_cast<std::chrono::milliseconds>(currentAttack - lastAttack).count();
 			if (duration > MIN_ATTACK_INTERVAL) {
-				std::cout << "BANG" << std::endl;
 				lastAttack = currentAttack;
 				return true;;
 			}	

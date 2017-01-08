@@ -64,7 +64,7 @@ const glm::vec2 SCREEN_SIZE(1366, 768);
 const GLfloat TURN_RATE = 0.07;
 const GLfloat MOVEMENT_RATE = 0.01;
 const GLfloat MAX_ATTACK_DISTANCE = 40;
-const GLfloat PROJECTILE_SPEED = 1;
+const GLfloat PROJECTILE_SPEED = 10;
 const GLfloat GRAVITY = 1;
 const GLfloat TURRET_HORIZONTAL_RATE = 0.1f;
 const GLfloat TURRET_VERTICAL_RATE = 0.1f;
@@ -90,7 +90,7 @@ Projectile p;
 std::vector<Projectile*> projectiles;
 
 void AIMove(Tank& tank);
-
+void ProjectileMove(float t);
 
 
 // returns a new cb::Program created from the given vertex and fragment shader filenames
@@ -468,9 +468,9 @@ static void Update(float secondsElapsed) {
 		pTank.removeHealth(-10);
 	}
 	else if (glfwGetKey(gWindow, 'K')) {
-		/*Projectile* ptr = projectiles.begin();
-		gInstances.erase((projectiles.begin()+1)->body);
-		projectiles.erase(projectiles.begin());*/
+		Projectile* shot = new Projectile(eTank.GetCannon()->positionX, eTank.GetCannon()->positionY, eTank.GetCannon()->positionZ, gBall, eTank.getRightOrientation(), eTank.getUpOrientation());
+		gInstances.push_back(shot->getBody());
+		projectiles.push_back(shot);
 	}
 
 	//move light
@@ -608,9 +608,10 @@ void AppMain() {
 		// update the scene based on the time elapsed since last update
 		double thisTime = glfwGetTime();
 		Update((float)(thisTime - lastTime));
+		ProjectileMove((float)(thisTime - lastTime));
 		lastTime = thisTime;
+		
 
-		// draw one frame
 		AIMove(eTank);
 		Render();
 
@@ -703,7 +704,11 @@ void AIMove(Tank& t) {
 	}
 	
 }
-
+void ProjectileMove(float secondsEllapsed) {
+	for (int i = 0;i < projectiles.size();i++) {
+		projectiles[i]->move(secondsEllapsed, GRAVITY, PROJECTILE_SPEED);
+	}
+}
 
 int main(int argc, char *argv[]) {
 	try {
