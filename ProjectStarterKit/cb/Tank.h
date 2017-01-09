@@ -28,6 +28,7 @@ namespace cb {
 			body = new ModelInstance();
 			body->asset = &bodyAsset;
 			body->transform = translate(x, y, z)*scale(1.5, 0.5, 2);
+			body->setSize(1.5, 0.5, 2);
 			body->positionX = x;
 			body->positionY = y;
 			body->positionZ = z;
@@ -48,6 +49,7 @@ namespace cb {
 
 			health = 100;
 			lastAttack = std::chrono::steady_clock::now();
+			body->setColllisionVectors(getTransformArray(*body));
 		}
 		void rotateBody(GLfloat turnRate) {
 			xzOrientation += turnRate;
@@ -58,7 +60,7 @@ namespace cb {
 		ModelInstance* GetCannon() { return cannon; }
 		void move(GLfloat movementRate) {
 			body->transform = translate(body->positionX + movementRate*glm::sin(glm::radians(-xzOrientation) ), body->positionY, body->positionZ - movementRate*glm::cos(glm::radians(xzOrientation)))*rotate(glm::radians(xzOrientation), 0, 1, 0)*scale(1.5, 0.5, 2);
-	
+			body->setColllisionVectors(getTransformArray(*body));
 			body->setPosition(body->positionX + movementRate*glm::sin(glm::radians(-xzOrientation) ), body->positionY, body->positionZ - movementRate*glm::cos(glm::radians(xzOrientation)));
 			turret->setPosition(turret->positionX + movementRate*glm::sin(glm::radians(-xzOrientation) ), turret->positionY, turret->positionZ - movementRate*glm::cos(glm::radians(xzOrientation)));
 			cannon->setPosition(cannon->positionX + movementRate*(glm::sin(glm::radians(xzOrientation)) ), cannon->positionY+0.675, cannon->positionZ - movementRate*(1 - glm::cos(glm::radians(xzOrientation))));
@@ -83,6 +85,9 @@ namespace cb {
 		}
 		void removeHealth(double dmg) {
 			health -= dmg;
+		}
+		void calculateCollisionVectors() {
+			body->setColllisionVectors(getTransformArray(*body));
 		}
 		bool Tank::shoot(){
 			std::chrono::steady_clock::time_point currentAttack = std::chrono::steady_clock::now();

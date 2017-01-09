@@ -62,12 +62,17 @@ using namespace cb;
 const glm::vec2 SCREEN_SIZE(1366, 768);
 
 const GLfloat TURN_RATE = 0.07;
-const GLfloat MOVEMENT_RATE = 0.01;
+const GLfloat MOVEMENT_RATE = 0.03;
 const GLfloat MAX_ATTACK_DISTANCE = 40;
-const GLfloat PROJECTILE_SPEED = 10;
+const GLfloat PROJECTILE_SPEED = 30;
 const GLfloat GRAVITY = 1;
 const GLfloat TURRET_HORIZONTAL_RATE = 0.1f;
 const GLfloat TURRET_VERTICAL_RATE = 0.1f;
+const int OBSTACLE_START_INDEX = 10;
+const int OBSTACLE_END_INDEX = 13;
+bool terminated = false;
+int respawnCount = 5;
+double score = 0;
 
 // globals
 GLFWwindow* gWindow = NULL;
@@ -84,7 +89,7 @@ GLfloat mUp = 0.0f;
 GLfloat camx;
 GLfloat camy;
 GLfloat camz;
-ModelInstance terrain, tank1, tank2;
+ModelInstance terrain, tank1, tank2, tank3;
 Tank pTank, eTank, eTank2;
 Projectile p,p2;
 std::vector<Projectile*> projectiles;
@@ -93,6 +98,9 @@ void AIMove(Tank& tank);
 void ProjectileMove(float t);
 bool ProjectileCollide(Tank & t, Projectile* projectile);
 GLfloat distance(GLfloat x, GLfloat y, GLfloat z, GLfloat px, GLfloat py, GLfloat pz);
+void checkHealth(Tank& t);
+bool OBB(ModelInstance a, ModelInstance b, glm::vec3 L);
+bool isColliding(ModelInstance obstacle, ModelInstance moving);
 
 
 // returns a new cb::Program created from the given vertex and fragment shader filenames
@@ -358,6 +366,8 @@ static void CreateInstances() {
 	tank1.positionX = -5;
 	tank1.positionY = 1;
 	tank1.positionZ = -10;
+	tank1.setSize(1, 1, 1);
+	tank1.setColllisionVectors(getTransformArray(tank1));
 	gInstances.push_back(&tank1);
 
 
@@ -366,7 +376,18 @@ static void CreateInstances() {
 	tank2.positionX = 5;
 	tank2.positionY = 1;
 	tank2.positionZ = -10;
+	tank2.setSize(1, 1, 1);
+	tank2.setColllisionVectors(getTransformArray(tank2));
 	gInstances.push_back(&tank2);
+
+	tank3.asset = &gTank;
+	tank3.transform = translate(0, 1, -10)*scale(1, 1, 1);
+	tank3.positionX = 5;
+	tank3.positionY = 1;
+	tank3.positionZ = -10;
+	tank3.setSize(1, 1, 1);
+	tank3.setColllisionVectors(getTransformArray(tank3));
+	gInstances.push_back(&tank3);
 
 	//gInstances.push_back(p.getBody());
 	//gInstances.push_back(p2.getBody());
@@ -455,16 +476,69 @@ static void Update(float secondsElapsed) {
 	//move position of camera based on WASD keys, and XZ keys for up and down
 	const float moveSpeed = 4.0; //units per second
 	if (glfwGetKey(gWindow, 'S')) {
+		bool colliding = false;
 		pTank.moveBack(MOVEMENT_RATE);
+		pTank.calculateCollisionVectors();
+		for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+			if (isColliding(*gInstances[i], *gInstances[1]))
+				colliding = true;
+		}
+		if (isColliding(*gInstances[2], *gInstances[1]))
+			colliding = true;
+		if (isColliding(*gInstances[3], *gInstances[1]))
+			colliding = true;
+		if (colliding) {
+			pTank.move(MOVEMENT_RATE * 5);
+		}
 	}
 	else if (glfwGetKey(gWindow, 'W')) {
+		bool colliding = false;
 		pTank.move(MOVEMENT_RATE);
+		pTank.calculateCollisionVectors();
+		for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+			if (isColliding(*gInstances[i], *gInstances[1]))
+				colliding = true;
+		}
+		if (isColliding(*gInstances[2], *gInstances[1]))
+			colliding = true;
+		if (isColliding(*gInstances[3], *gInstances[1]))
+			colliding = true;
+		if (colliding) {
+			pTank.moveBack(MOVEMENT_RATE * 5);
+		}
+
 	}
 	if (glfwGetKey(gWindow, 'A')) {
+		bool colliding = false;
 		pTank.rotateBody(TURN_RATE);
+		pTank.calculateCollisionVectors();
+		for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+			if (isColliding(*gInstances[i], *gInstances[1]))
+				colliding = true;
+		}
+		if (isColliding(*gInstances[2], *gInstances[1]))
+			colliding = true;
+		if (isColliding(*gInstances[3], *gInstances[1]))
+			colliding = true;
+		if (colliding) {
+			pTank.rotateBody(-TURN_RATE);
+		}
 	}
 	else if (glfwGetKey(gWindow, 'D')) {
+		bool colliding = false;
 		pTank.rotateBody(-TURN_RATE);
+		pTank.calculateCollisionVectors();
+		for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+			if (isColliding(*gInstances[i], *gInstances[1]))
+				colliding = true;
+		}
+		if (isColliding(*gInstances[2], *gInstances[1]))
+			colliding = true;
+		if (isColliding(*gInstances[3], *gInstances[1]))
+			colliding = true;
+		if (colliding) {
+			pTank.rotateBody(+TURN_RATE);
+		}
 	}
 	if (glfwGetKey(gWindow, 'Z')) {
 		gCamera.offsetPosition(secondsElapsed * moveSpeed * -glm::vec3(0, 1, 0));
@@ -473,16 +547,17 @@ static void Update(float secondsElapsed) {
 		gCamera.offsetPosition(secondsElapsed * moveSpeed * glm::vec3(0, 1, 0));
 	}
 	else if (glfwGetKey(gWindow, 'I')) {
-		pTank.removeHealth(10);
+		eTank.removeHealth(100);
 	}
 	else if (glfwGetKey(gWindow, 'J')) {
-		pTank.removeHealth(-10);
+		eTank.removeHealth(-10);
 	}
 	else if (glfwGetKey(gWindow, 'K')) {
 		if (pTank.shoot()) {
 			Projectile* shot = new Projectile(pTank.GetTurret()->positionX + 3*glm::cos(glm::radians(-pTank.getUpOrientation()))*glm::sin(glm::radians(pTank.getRightOrientation())), pTank.GetTurret()->positionY + 3 * glm::sin(glm::radians(-pTank.getUpOrientation())), pTank.GetTurret()->positionZ- 3 * glm::cos(glm::radians(-pTank.getUpOrientation()))*glm::cos(glm::radians(pTank.getRightOrientation())), gBall, pTank.getRightOrientation(), pTank.getUpOrientation());
 			gInstances.push_back(shot->getBody());
 			projectiles.push_back(shot);
+			std::cout << eTank2.getHealth() << std::endl;
 		}
 	}
 
@@ -614,7 +689,7 @@ void AppMain() {
 
 	// run while the window is open
 	double lastTime = glfwGetTime();
-	while (!glfwWindowShouldClose(gWindow)) {
+	while (!glfwWindowShouldClose(gWindow) &&!terminated) {
 		// process pending events
 		glfwPollEvents();
 
@@ -623,12 +698,15 @@ void AppMain() {
 		Update((float)(thisTime - lastTime));
 		ProjectileMove((float)(thisTime - lastTime));
 		lastTime = thisTime;
+		checkHealth(pTank);
+		checkHealth(eTank);
+		checkHealth(eTank2);
 		
+		if (terminated) break;
 
-		AIMove(eTank);
-		AIMove(eTank2);
+	//	AIMove(eTank);
+	//	AIMove(eTank2);
 		Render();
-
 		// check for errors
 		GLenum error = glGetError();
 		if (error != GL_NO_ERROR)
@@ -647,42 +725,189 @@ void AIMove(Tank& t) {
 	GLfloat angleDifference = abs(pTank.getXZOrientation() - eTank.getXZOrientation());
 	GLfloat distance = sqrt(pow(pTank.GetBody()->positionZ - t.GetBody()->positionZ, 2) + pow(pTank.GetBody()->positionX - t.GetBody()->positionX, 2));
 	GLfloat minDistance = 30 + (pTank.getHealth() - t.getHealth())* 0.5;
+	int tankIndex;
+	if (t.GetBody() == eTank.GetBody()) {
+		tankIndex = 2;
+	}
+	else {
+		tankIndex = 3;
+	}
 	if (distance > minDistance) {
 		if (abs(pTank.getXZOrientation() - eTank.getXZOrientation() - TURN_RATE) < angleDifference) {
+			bool colliding = false;
 			t.rotateBody(TURN_RATE);
+			t.calculateCollisionVectors();
+			for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+				if (isColliding(*gInstances[i], *gInstances[tankIndex]))
+					colliding = true;
+			}
+			if (isColliding(*gInstances[1], *gInstances[tankIndex]))
+				colliding = true;
+			int friendlyTankIndex = (tankIndex == 3 ? 2 : 3);
+			if (isColliding(*gInstances[friendlyTankIndex], *gInstances[tankIndex]))
+				colliding = true;
+			if (colliding) {
+				t.rotateBody(-TURN_RATE * 5);
+			}
 		}
 		else if (abs(pTank.getXZOrientation() - eTank.getXZOrientation() + TURN_RATE) < angleDifference) {
+			bool colliding = false;
 			t.rotateBody(-TURN_RATE);
+			t.calculateCollisionVectors();
+			for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+				if (isColliding(*gInstances[i], *gInstances[tankIndex]))
+					colliding = true;
+			}
+			if (isColliding(*gInstances[1], *gInstances[tankIndex]))
+				colliding = true;
+			int friendlyTankIndex = (tankIndex == 3 ? 2 : 3);
+			if (isColliding(*gInstances[friendlyTankIndex], *gInstances[tankIndex]))
+				colliding = true;
+			if (colliding) {
+				t.rotateBody(TURN_RATE * 5);
+			}
 		}
 		else {
+			bool colliding = false;
 			t.rotateBody(TURN_RATE);
+			t.calculateCollisionVectors();
+			for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+				if (isColliding(*gInstances[i], *gInstances[tankIndex]))
+					colliding = true;
+			}
+			if (isColliding(*gInstances[1], *gInstances[tankIndex]))
+				colliding = true;
+			int friendlyTankIndex = (tankIndex == 3 ? 2 : 3);
+			if (isColliding(*gInstances[friendlyTankIndex], *gInstances[tankIndex]))
+				colliding = true;
+			if (colliding) {
+				t.rotateBody(-TURN_RATE * 5);
+			}
 		}
 		if (distance > sqrt(pow(pTank.GetBody()->positionZ - t.GetBody()->positionZ + MOVEMENT_RATE*glm::cos(glm::radians(t.getXZOrientation())), 2) + pow(pTank.GetBody()->positionX - t.GetBody()->positionX - MOVEMENT_RATE*glm::sin(glm::radians(-t.getXZOrientation())), 2)))
 		{
+			bool colliding = false;
 			t.move(MOVEMENT_RATE);
+			t.calculateCollisionVectors();
+			for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+				if (isColliding(*gInstances[i], *gInstances[tankIndex]))
+					colliding = true;
+			}
+			if (isColliding(*gInstances[1], *gInstances[tankIndex]))
+				colliding = true;
+			int friendlyTankIndex = (tankIndex == 3 ? 2 : 3);
+			if (isColliding(*gInstances[friendlyTankIndex], *gInstances[tankIndex]))
+				colliding = true;
+			if (colliding) {
+				t.moveBack(MOVEMENT_RATE * 5);
+			}
 		}
 		else
 		{
+			bool colliding = false;
 			t.moveBack(MOVEMENT_RATE);
+			t.calculateCollisionVectors();
+			for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+				if (isColliding(*gInstances[i], *gInstances[tankIndex]))
+					colliding = true;
+			}
+			if (isColliding(*gInstances[1], *gInstances[tankIndex]))
+				colliding = true;
+			int friendlyTankIndex = (tankIndex == 3 ? 2 : 3);
+			if (isColliding(*gInstances[friendlyTankIndex], *gInstances[tankIndex]))
+				colliding = true;
+			if (colliding) {
+				t.move(MOVEMENT_RATE * 5);
+			}
 		}
 	}
 	else{
 		if (abs(pTank.getXZOrientation() - eTank.getXZOrientation() - TURN_RATE) < angleDifference) {
+			bool colliding = false;
 			t.rotateBody(-TURN_RATE);
+			t.calculateCollisionVectors();
+			for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+				if (isColliding(*gInstances[i], *gInstances[tankIndex]))
+					colliding = true;
+			}
+			if (isColliding(*gInstances[1], *gInstances[tankIndex]))
+				colliding = true;
+			int friendlyTankIndex = (tankIndex == 3 ? 2 : 3);
+			if (isColliding(*gInstances[friendlyTankIndex], *gInstances[tankIndex]))
+				colliding = true;
+			if (colliding) {
+				t.rotateBody(TURN_RATE * 5);
+			}
 		}
 		else if (abs(pTank.getXZOrientation() - eTank.getXZOrientation() + TURN_RATE) < angleDifference) {
-			t.rotateBody(+TURN_RATE);
+			bool colliding = false;
+			t.rotateBody(TURN_RATE);
+			t.calculateCollisionVectors();
+			for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+				if (isColliding(*gInstances[i], *gInstances[tankIndex]))
+					colliding = true;
+			}
+			if (isColliding(*gInstances[1], *gInstances[tankIndex]))
+				colliding = true;
+			int friendlyTankIndex = (tankIndex == 3 ? 2 : 3);
+			if (isColliding(*gInstances[friendlyTankIndex], *gInstances[tankIndex]))
+				colliding = true;
+			if (colliding) {
+				t.rotateBody(-TURN_RATE * 5);
+			}
 		}
 		else {
+			bool colliding = false;
 			t.rotateBody(TURN_RATE);
+			t.calculateCollisionVectors();
+			for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+				if (isColliding(*gInstances[i], *gInstances[tankIndex]))
+					colliding = true;
+			}
+			if (isColliding(*gInstances[1], *gInstances[tankIndex]))
+				colliding = true;
+			int friendlyTankIndex = (tankIndex == 3 ? 2 : 3);
+			if (isColliding(*gInstances[friendlyTankIndex], *gInstances[tankIndex]))
+				colliding = true;
+			if (colliding) {
+				t.rotateBody(-TURN_RATE * 5);
+			}
 		}
 		if (distance > sqrt(pow(pTank.GetBody()->positionZ - t.GetBody()->positionZ + MOVEMENT_RATE*glm::cos(glm::radians(t.getXZOrientation())), 2) + pow(pTank.GetBody()->positionX - t.GetBody()->positionX - MOVEMENT_RATE*glm::sin(glm::radians(-t.getXZOrientation())), 2)))
 		{
+			bool colliding = false;
 			t.moveBack(MOVEMENT_RATE);
+			t.calculateCollisionVectors();
+			for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+				if (isColliding(*gInstances[i], *gInstances[tankIndex]))
+					colliding = true;
+			}
+			if (isColliding(*gInstances[1], *gInstances[tankIndex]))
+				colliding = true;
+			int friendlyTankIndex = (tankIndex == 3 ? 2 : 3);
+			if (isColliding(*gInstances[friendlyTankIndex], *gInstances[tankIndex]))
+				colliding = true;
+			if (colliding) {
+				t.move(MOVEMENT_RATE * 5);
+			}
 		}
 		else
 		{
+			bool colliding = false;
 			t.move(MOVEMENT_RATE);
+			t.calculateCollisionVectors();
+			for (int i = OBSTACLE_START_INDEX; i < OBSTACLE_END_INDEX;i++) {
+				if (isColliding(*gInstances[i], *gInstances[tankIndex]))
+					colliding = true;
+			}
+			if (isColliding(*gInstances[1], *gInstances[tankIndex]))
+				colliding = true;
+			int friendlyTankIndex = (tankIndex == 3 ? 2 : 3);
+			if (isColliding(*gInstances[friendlyTankIndex], *gInstances[tankIndex]))
+				colliding = true;
+			if (colliding) {
+				t.moveBack(MOVEMENT_RATE * 5);
+			}
 		}
 	}
 
@@ -792,10 +1017,157 @@ bool ProjectileCollide(Tank & t, Projectile* projectile){
 GLfloat distance(GLfloat x, GLfloat y, GLfloat z, GLfloat px, GLfloat py, GLfloat pz) {
 	return sqrt(pow(px - x, 2) + pow(py - y, 2) + pow(pz - z, 2));
 }
+void checkHealth(Tank & t) {
+	if (t.getHealth() <= 0) {
+		if (t.GetBody() == pTank.GetBody()){
+			terminated=true;
+		}
+		else{
+			if (respawnCount > 0) {
+				score += 100;
+				if (t.GetBody() == eTank.GetBody()) {
+					t = Tank(0, 0.5, 120, gTank, gTerrain, gTank, 0);
+					respawnCount--;
+					gInstances[2] = t.GetBody();
+					gInstances[6] = t.GetTurret();
+					gInstances[7] = t.GetCannon();
+				}
+				else {
+					t = Tank(0, 0.5, -120, gTank, gTerrain, gTank, 0);
+					respawnCount--;
+					gInstances[3] = t.GetBody();
+					gInstances[8] = t.GetTurret();
+					gInstances[9] = t.GetCannon();
+				}
+			}
+			else {
+				terminated = true;
+			}
+		}
+	}
+}
+bool isColliding(ModelInstance obstacle, ModelInstance moving) {
+			bool collisionCheck = true;
+			glm::vec3 L;
+			//case1
+			L = moving.Ax;
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case2
+			L = moving.Ay;
+
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case3
+			L = moving.Az;
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case4
+			L = obstacle.Ax;
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case5
+			L = obstacle.Ay;
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case6
+			L = obstacle.Az;
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case7
+			L = glm::cross(moving.Ax, obstacle.Ax);
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case8
+			L = glm::cross(moving.Ax, obstacle.Ay);
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case9
+			L = glm::cross(moving.Ax, obstacle.Az);
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case10
+			L = glm::cross(moving.Ay, obstacle.Ax);
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case11
+			L = glm::cross(moving.Ay, obstacle.Ay);
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case12
+			L = glm::cross(moving.Ay, obstacle.Az);
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case13
+			L = glm::cross(moving.Az, obstacle.Ax);
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+			//case14
+			L = glm::cross(moving.Az, obstacle.Ay);
+			if (OBB(moving, obstacle, L)) {
+
+				collisionCheck = false;
+			}
+
+			L = glm::cross(moving.Az, obstacle.Az);
+			if (OBB(moving, obstacle, L)) {
+				collisionCheck = false;
+			}
+			if (collisionCheck)
+				return true;
+	return false;
+}
+bool OBB(ModelInstance a, ModelInstance b, glm::vec3 L) {
+	glm::vec3 T = a.pos - b.pos;
+	if (glm::dot(T, L) == 0)
+	{
+		return false;
+	}
+	if ((abs(glm::dot(T, L))) > ((abs(glm::dot(multiply(a.size.x, a.Ax), L)) + abs(glm::dot(multiply(a.size.y, a.Ay), L)) + abs(glm::dot(multiply(a.size.z, a.Az), L)) + abs(glm::dot(multiply(b.size.x, b.Ax), L)) + abs(glm::dot(multiply(b.size.y, b.Ay), L)) + abs(glm::dot(multiply(b.size.z, b.Az), L))))) {
+		return true;
+	}
+	else
+
+		return false;
+}
 
 int main(int argc, char *argv[]) {
 	try {
 		AppMain();
+		if (pTank.getHealth() <= 0) {
+			std::cout << "YOU LOSE, SCORE: " << score<< std::endl;
+		}
+		else {
+			std::cout << "YOU WIN, SCORE: " << score + pTank.getHealth()*1.5 << std::endl;
+		}
+		std::cin.ignore();
+		std::cin.get();
 	}
 	catch (const std::exception& e) {
 		std::cerr << "ERROR: " << e.what() << std::endl;
@@ -804,3 +1176,4 @@ int main(int argc, char *argv[]) {
 
 	return EXIT_SUCCESS;
 }
+

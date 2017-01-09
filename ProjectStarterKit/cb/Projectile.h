@@ -27,7 +27,7 @@ namespace cb {
 			yAngle = yA;
 			body = new ModelInstance();
 			body->asset = &bodyAsset;
-			body->transform = translate(x, y, z)*scale(1.55f, 1.55f, 1.55f);
+			body->transform = translate(x, y, z)*scale(0.1f, 0.1f, 0.1f);
 			body->positionX = x;
 			body->positionY = y;
 			body->positionZ = z;
